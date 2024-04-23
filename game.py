@@ -13,8 +13,8 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 
 # Spaceship dimensions
-SPACESHIP_WIDTH = 141
-SPACESHIP_HEIGHT = 87
+SPACESHIP_WIDTH = 60
+SPACESHIP_HEIGHT = 73
 
 # Bullet dimensions
 BULLET_WIDTH = 5
@@ -41,7 +41,7 @@ enemy_bullet_speed = 7  # Adjust bullet speed for enemies
 # Enemy setup
 enemies = []
 enemy_speed = 1
-enemy_frequency = 100
+enemy_frequency = 100  # Default enemy frequency
 enemy_timer = 0
 
 # Font setup
@@ -133,7 +133,7 @@ def mode_selection_screen():
     pygame.display.flip()
 
     # Wait for the player to click the mode button
-    wait_for_mode_selection(easy_button_rect, hard_button_rect)
+    return wait_for_mode_selection(easy_button_rect, hard_button_rect)
 
 # Function to wait for mode selection button click
 def wait_for_mode_selection(easy_button_rect, hard_button_rect):
@@ -157,10 +157,26 @@ def move_enemies():
             enemy_speed *= -1  # Reverse direction when reaching edges
         enemy.x += enemy_speed
 
+# Function to update enemy shooting frequency
+def update_enemy_shooting():
+    global enemy_timer
+    if enemy_timer <= 0:
+        for enemy in enemies:
+            if random.randint(1, 100) == 1:  # Adjust the probability of each enemy shooting
+                enemy_shoot(enemy)
+        enemy_timer = enemy_frequency
+    else:
+        enemy_timer -= 1
+
 # Game loop
 while True:
     mode = mode_selection_screen()
-    enemy_speed = 1 if mode else 3  # Set enemy speed based on mode
+    if mode:  # Hard mode
+        enemy_frequency = 40  # Decrease enemy frequency
+    else:  # Easy mode
+        enemy_frequency = 100  # Restore default enemy frequency
+    enemy_timer = 0  # Reset enemy timer
+    enemy_speed = 3 if mode else 1  # Set enemy speed based on mode
 
     running = True
     score = 0
@@ -198,35 +214,23 @@ while True:
             pygame.draw.rect(screen, WHITE, bullet)
 
         # Create enemies
-        if not mode:
-            if enemy_timer <= 0:
-                enemies.append(create_enemy())
-                enemy_timer = enemy_frequency
-            else:
-                enemy_timer -= 1
-
-            # Move enemies and let them shoot
-            for enemy in enemies:
-                enemy.y += enemy_speed
-                enemy_img_rect = pygame.Rect(enemy.x, enemy.y, ENEMY_WIDTH, ENEMY_HEIGHT)
-                enemy_img = pygame.image.load("evilspaceship.png")
-                enemy_img = pygame.transform.scale(enemy_img, (ENEMY_WIDTH, ENEMY_HEIGHT))
-                screen.blit(enemy_img, enemy_img_rect)
-
-                # Enemy shoots
-                if random.randint(1, 200) == 1:
-                    enemy_shoot(enemy)
+        if enemy_timer <= 0:
+            enemies.append(create_enemy())
+            enemy_timer = enemy_frequency
         else:
-            move_enemies()
-            for enemy in enemies:
-                enemy_img_rect = pygame.Rect(enemy.x, enemy.y, ENEMY_WIDTH, ENEMY_HEIGHT)
-                enemy_img = pygame.image.load("evilspaceship.png")
-                enemy_img = pygame.transform.scale(enemy_img, (ENEMY_WIDTH, ENEMY_HEIGHT))
-                screen.blit(enemy_img, enemy_img_rect)
+            enemy_timer -= 1
 
-                # Enemy shoots
-                if random.randint(1, 200) == 1:
-                    enemy_shoot(enemy)
+        # Move enemies and let them shoot
+        for enemy in enemies:
+            enemy.y += enemy_speed
+            enemy_img_rect = pygame.Rect(enemy.x, enemy.y, ENEMY_WIDTH, ENEMY_HEIGHT)
+            enemy_img = pygame.image.load("evilspaceship.png")
+            enemy_img = pygame.transform.scale(enemy_img, (ENEMY_WIDTH, ENEMY_HEIGHT))
+            screen.blit(enemy_img, enemy_img_rect)
+
+            # Enemy shoots
+            if random.randint(1, 200) == 1:
+                enemy_shoot(enemy)
 
         # Draw player
         screen.blit(player_img, (player_x, player_y))
