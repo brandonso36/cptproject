@@ -76,27 +76,32 @@ def game_over_screen():
     game_over_text = font.render("Game Over", True, WHITE)
     score_text = font.render("Score: " + str(score), True, WHITE)
     play_again_text = font.render("Play Again", True, WHITE)
+    leaderboard_text = font.render("Leaderboard", True, WHITE)
 
     # Centering texts
     game_over_rect = game_over_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 50))
     score_rect = score_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
     play_again_rect = play_again_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 50))
+    leaderboard_rect = leaderboard_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 100))
 
     screen.blit(game_over_text, game_over_rect)
     screen.blit(score_text, score_rect)
     screen.blit(play_again_text, play_again_rect)
+    screen.blit(leaderboard_text, leaderboard_rect)
 
-    # Create button rect
+    # Create button rects
     play_again_button_rect = pygame.Rect(play_again_rect)
+    leaderboard_button_rect = pygame.Rect(leaderboard_rect)
     pygame.draw.rect(screen, WHITE, play_again_button_rect, 2)
+    pygame.draw.rect(screen, WHITE, leaderboard_button_rect, 2)
 
     pygame.display.flip()
 
-    # Wait for the player to click the play again button
-    wait_for_play_again(play_again_button_rect)
+    # Wait for the player to click the play again or leaderboard button
+    wait_for_buttons(play_again_button_rect, leaderboard_button_rect)
 
-# Function to wait for play again button click
-def wait_for_play_again(play_again_button_rect):
+# Function to wait for button clicks
+def wait_for_buttons(play_again_button_rect, leaderboard_button_rect):
     waiting = True
     while waiting:
         for event in pygame.event.get():
@@ -107,6 +112,20 @@ def wait_for_play_again(play_again_button_rect):
                 if event.button == 1:  # Left click
                     if play_again_button_rect.collidepoint(event.pos):
                         waiting = False
+                        reset_game()
+                    elif leaderboard_button_rect.collidepoint(event.pos):
+                        waiting = False
+                        leaderboard_screen()
+
+# Function to reset the game
+def reset_game():
+    global player_x, player_y, player_bullets, enemies, score, enemy_bullets
+    player_x = SCREEN_WIDTH // 2 - SPACESHIP_WIDTH // 2
+    player_y = SCREEN_HEIGHT - SPACESHIP_HEIGHT - 10
+    player_bullets = []
+    enemy_bullets = []  # Clear enemy bullets
+    enemies = []
+    score = 0
 
 # Function to display mode selection screen
 def mode_selection_screen():
@@ -168,22 +187,83 @@ def update_enemy_shooting():
     else:
         enemy_timer -= 1
 
+# Function to display leaderboard screen
+def leaderboard_screen():
+    screen.fill(BLACK)
+    leaderboard_title_text = font.render("Leaderboard", True, WHITE)
+    back_text = font.render("Back", True, WHITE)
+
+    # Centering texts
+    leaderboard_title_rect = leaderboard_title_text.get_rect(center=(SCREEN_WIDTH // 2, 50))
+    back_rect = back_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT - 50))
+
+    screen.blit(leaderboard_title_text, leaderboard_title_rect)
+
+    # Display top 5 scores
+    top_scores = get_top_scores()
+    for i, score in enumerate(top_scores):
+        score_text = font.render(f"{i + 1}. Score: {score}", True, WHITE)
+        score_rect = score_text.get_rect(center=(SCREEN_WIDTH // 2, 100 + i * 40))
+        screen.blit(score_text, score_rect)
+
+    screen.blit(back_text, back_rect)
+
+    # Create button rect
+    back_button_rect = pygame.Rect(back_rect)
+    pygame.draw.rect(screen, WHITE, back_button_rect, 2)
+
+    pygame.display.flip()
+
+    # Wait for the player to click the back button
+    wait_for_back(back_button_rect)
+
+# Function to get top scores from the leaderboard file
+def get_top_scores():
+    with open("leaderboard.txt", "r") as file:
+        scores = [int(score) for score in file.readlines()]
+    return sorted(scores, reverse=True)[:5]
+
+# Function to wait for back button click
+def wait_for_back(back_button_rect):
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:  # Left click
+                    if back_button_rect.collidepoint(event.pos):
+                        waiting = False
+
+# Function to update the leaderboard file with the new score
+def update_leaderboard():
+    with open("leaderboard.txt", "a") as file:
+        file.write(str(score) + "\n")
+
+# Function to remove off-screen bullets and enemies
+def remove_off_screen():
+    global player_bullets, enemy_bullets, enemies
+    player_bullets = [bullet for bullet in player_bullets if bullet.y > 0]
+    enemy_bullets = [bullet for bullet in enemy_bullets if bullet.y < SCREEN_HEIGHT]
+    enemies = [enemy for enemy in enemies if enemy.y < SCREEN_HEIGHT]
+
+# Display mode selection screen
+mode = mode_selection_screen()
+
+# Set difficulty mode
+if mode:  # Hard mode
+    enemy_frequency = 40  # Decrease enemy frequency
+else:  # Easy mode
+    enemy_frequency = 100  # Restore default enemy frequency
+
+enemy_timer = 0  # Reset enemy timer
+enemy_speed = 3 if mode else 1  # Set enemy speed based on mode
+
 # Game loop
 while True:
-    mode = mode_selection_screen()
-    if mode:  # Hard mode
-        enemy_frequency = 40  # Decrease enemy frequency
-    else:  # Easy mode
-        enemy_frequency = 100  # Restore default enemy frequency
-    enemy_timer = 0  # Reset enemy timer
-    enemy_speed = 3 if mode else 1  # Set enemy speed based on mode
-
     running = True
-    score = 0
-    player_x = SCREEN_WIDTH // 2 - SPACESHIP_WIDTH // 2
-    player_y = SCREEN_HEIGHT - SPACESHIP_HEIGHT - 10
-    player_bullets = []
-    enemies = []
+    reset_game()
 
     while running:
         screen.fill(BLACK)
@@ -240,14 +320,16 @@ while True:
             for enemy in enemies[:]:
                 if bullet.colliderect(enemy):
                     player_bullets.remove(bullet)
-                    if bullet.y > 0:
-                        enemies.remove(enemy)
-                        score += 100
+                    enemies.remove(enemy)
+                    score += 100
 
         # Collision detection for enemy bullets and player
         for bullet in enemy_bullets:
             if bullet.colliderect((player_x, player_y, SPACESHIP_WIDTH, SPACESHIP_HEIGHT)):
                 running = False
+
+        # Remove off-screen bullets and enemies
+        remove_off_screen()
 
         # Draw score
         score_text = font.render("Score: " + str(score), True, WHITE)
@@ -258,6 +340,9 @@ while True:
 
         # Cap the frame rate
         pygame.time.Clock().tick(60)
+
+    # Update leaderboard
+    update_leaderboard()
 
     # Game over screen
     game_over_screen()
